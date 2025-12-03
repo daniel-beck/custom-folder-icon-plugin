@@ -7,8 +7,13 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Item;
 import hudson.util.FormValidation;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jenkins.model.Jenkins;
+import jenkins.scm.impl.avatars.AvatarCache;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -20,6 +25,8 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public class UrlFolderIcon extends FolderIcon {
 
     private static final String DEFAULT_ICON_PATH = "plugin/custom-folder-icon/icons/default.svg";
+    private static final Logger LOGGER = Logger.getLogger(UrlFolderIcon.class.getName());
+    public static final String DEFAULT_ICON_SIZE = "48x48";
 
     private final String url;
 
@@ -50,10 +57,18 @@ public class UrlFolderIcon extends FolderIcon {
     @Override
     public String getImageOf(String size) {
         if (getUrl() != null && !getUrl().isBlank()) {
+            try {
+                URI uri = new URI(getUrl());
+                if (uri.isAbsolute() || uri.getHost() != null) {
+                    // absolute or scheme-relative URL
+                    return AvatarCache.buildUrl(getUrl(), size == null ? DEFAULT_ICON_SIZE : size);
+                }
+            } catch (URISyntaxException e) {
+                LOGGER.log(Level.FINE, "Invalid URL: " + getUrl(), e);
+            }
             return getUrl();
-        } else {
-            return Jenkins.get().getRootUrl() + DEFAULT_ICON_PATH;
         }
+        return Jenkins.get().getRootUrl() + DEFAULT_ICON_PATH;
     }
 
     @Override
